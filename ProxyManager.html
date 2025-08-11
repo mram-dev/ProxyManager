@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد پروکسی</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #0d1117;
+            background-image: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            color: #c9d1d9;
+        }
+        
+        .table-container {
+            background: rgba(13, 17, 23, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 139, 253, 0.1);
+            border-radius: 0.75rem;
+        }
+
+        .proxy-table thead th {
+            color: #8b949e;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(56, 139, 253, 0.2);
+        }
+
+        .proxy-table tbody tr {
+            border-bottom: 1px solid rgba(35, 45, 62, 0.8);
+            transition: background-color 0.3s ease;
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        .proxy-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .proxy-table tbody tr:hover {
+            background-color: rgba(56, 139, 253, 0.07);
+        }
+
+        .proxy-table td, .proxy-table th {
+            padding: 1.25rem 1.5rem;
+            text-align: right;
+            white-space: nowrap;
+        }
+        
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px, 0 0 12px;
+        }
+
+        .loader {
+            border: 4px solid #30363d;
+            border-top: 4px solid #58a6ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        .neon-glow-button {
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.8), 0 0 10px rgba(59, 130, 246, 0.6);
+        }
+
+        .source-selector button {
+            transition: all 0.3s ease;
+            border: 1px solid #30363d;
+        }
+        .source-selector button.active {
+            background-color: #58a6ff;
+            color: #0d1117;
+            border-color: #58a6ff;
+            box-shadow: 0 0 8px #58a6ff;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="w-full max-w-7xl mx-auto p-4 sm:p-6 md:p-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl sm:text-5xl font-bold text-white mb-3 tracking-wider">
+                Proxy Dashboard
+            </h1>
+            <p class="text-lg text-gray-400">پروکسی‌های خود را از منابع مختلف مدیریت کنید</p>
+        </header>
+
+        <main>
+            <div class="mb-8 flex flex-col items-center justify-center space-y-6">
+                <!-- Source Selector -->
+                <div class="source-selector flex items-center justify-center p-1 bg-gray-900 rounded-lg">
+                    <button id="sourceWebshare" class="font-semibold py-2 px-6 rounded-md">Webshare</button>
+                    <button id="sourceProxyScrape" class="font-semibold py-2 px-6 rounded-md">ProxyScrape</button>
+                    <button id="sourceGeonode" class="font-semibold py-2 px-6 rounded-md">Geonode</button>
+                </div>
+
+                <button id="fetchButton" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 neon-glow-button focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 flex items-center">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5V4H4zm0 12v5h5v-5H4zM15 4v5h5V4h-5zm0 12v5h5v-5h-5z" />
+                    </svg>
+                    بارگذاری پروکسی‌ها
+                </button>
+            </div>
+
+            <div id="loader" class="hidden justify-center items-center my-8">
+                <div class="loader"></div>
+                <p class="mr-4 text-lg">در حال بارگذاری...</p>
+            </div>
+            
+            <div id="messageBox" class="hidden rounded-lg p-4 text-center my-4 opacity-0 transform -translate-y-4 transition-all duration-300">
+                <p id="messageText" class="font-semibold"></p>
+            </div>
+            
+            <div class="table-container overflow-x-auto">
+                <table class="w-full min-w-max proxy-table">
+                    <thead>
+                        <tr>
+                            <th>آدرس IP</th>
+                            <th>پورت</th>
+                            <th>کشور</th>
+                            <th>نام کاربری</th>
+                            <th>رمز عبور</th>
+                            <th>وضعیت</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="proxyTbody">
+                        <!-- Proxy rows will be inserted here -->
+                    </tbody>
+                </table>
+                 <div id="noProxyMessage" class="text-center py-16">
+                    <p class="text-gray-500 text-lg">یک منبع انتخاب کرده و روی دکمه "بارگذاری" کلیک کنید.</p>
+                </div>
+            </div>
+
+            <div id="paginationControls" class="hidden p-4 mt-8 flex items-center justify-center space-x-4 space-x-reverse">
+                 <button id="prevButton" class="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-bold py-2 px-5 rounded-lg transition-colors">
+                    قبلی
+                </button>
+                <span id="pageInfo" class="text-gray-400 font-semibold"></span>
+                 <button id="nextButton" class="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-bold py-2 px-5 rounded-lg transition-colors">
+                    بعدی
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const webshareApiKey = 'fzgxpanemt05m4h4x8crzu8wsvqt71ca4fapeakh';
+        
+        const webshareApiUrl = 'https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=10';
+        const proxyScrapeApiUrl = 'https://api.proxyscrape.com/v4/free-proxy-list/get?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all&skip=0&limit=2000';
+        // FIX: Replaced Proxifly with Geonode API
+        const geonodeApiUrl = 'https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc';
+        
+        const corsProxyUrl = 'https://corsproxy.io/?';
+
+        // --- STATE ---
+        let currentSource = 'webshare';
+        let nextPageUrl = null;
+        let prevPageUrl = null;
+        let isRateLimited = false;
+
+        // --- DOM ELEMENTS ---
+        const fetchButton = document.getElementById('fetchButton');
+        const loader = document.getElementById('loader');
+        const proxyTbody = document.getElementById('proxyTbody');
+        const noProxyMessage = document.getElementById('noProxyMessage');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const paginationControls = document.getElementById('paginationControls');
+        const nextButton = document.getElementById('nextButton');
+        const prevButton = document.getElementById('prevButton');
+        const pageInfo = document.getElementById('pageInfo');
+        const sourceWebshareBtn = document.getElementById('sourceWebshare');
+        const sourceProxyScrapeBtn = document.getElementById('sourceProxyScrape');
+        const sourceGeonodeBtn = document.getElementById('sourceGeonode');
+
+        // --- INITIALIZE ---
+        function setSource(source) {
+            currentSource = source;
+            sourceWebshareBtn.classList.toggle('active', source === 'webshare');
+            sourceProxyScrapeBtn.classList.toggle('active', source === 'proxyscrape');
+            sourceGeonodeBtn.classList.toggle('active', source === 'geonode');
+        }
+        setSource('webshare'); // Set initial source
+
+        // --- EVENT LISTENERS ---
+        sourceWebshareBtn.addEventListener('click', () => setSource('webshare'));
+        sourceProxyScrapeBtn.addEventListener('click', () => setSource('proxyscrape'));
+        sourceGeonodeBtn.addEventListener('click', () => setSource('geonode'));
+        
+        fetchButton.addEventListener('click', () => {
+            if (currentSource === 'webshare') {
+                fetchWebshareProxies(webshareApiUrl);
+            } else if (currentSource === 'proxyscrape') {
+                fetchProxyScrapeProxies();
+            } else if (currentSource === 'geonode') {
+                fetchGeonodeProxies();
+            }
+        });
+
+        nextButton.addEventListener('click', () => { if (nextPageUrl) fetchWebshareProxies(nextPageUrl); });
+        prevButton.addEventListener('click', () => { if (prevPageUrl) fetchWebshareProxies(prevPageUrl); });
+
+        // --- FUNCTIONS ---
+        function showMessage(message, type = 'info', duration = 5000) {
+            messageText.textContent = message;
+            messageBox.className = 'rounded-lg p-4 text-center my-4 opacity-0 transform -translate-y-4 transition-all duration-300'; // Reset classes
+            let bgColor = type === 'error' ? 'bg-red-900/70 text-red-200 border border-red-500/30' : type === 'success' ? 'bg-green-900/70 text-green-200 border border-green-500/30' : 'bg-blue-900/70 text-blue-200 border border-blue-500/30';
+            messageBox.classList.remove('hidden');
+            messageBox.classList.add(...bgColor.split(' '));
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-0', '-translate-y-4');
+            }, 10);
+
+            if (duration > 0) {
+                setTimeout(() => {
+                    messageBox.classList.add('opacity-0', '-translate-y-4');
+                    setTimeout(() => messageBox.classList.add('hidden'), 300);
+                }, duration);
+            }
+        }
+        
+        function handleRateLimit() {
+            isRateLimited = true;
+            let countdown = 60;
+            const updateMessage = () => {
+                showMessage(`محدودیت نرخ درخواست. لطفاً ${countdown} ثانیه صبر کنید.`, 'error', -1);
+            };
+            
+            updateMessage();
+            const interval = setInterval(() => {
+                countdown--;
+                updateMessage();
+                if (countdown <= 0) {
+                    clearInterval(interval);
+                    isRateLimited = false;
+                    messageBox.classList.add('hidden');
+                    updateButtonStates();
+                }
+            }, 1000);
+            updateButtonStates();
+        }
+
+        function updateButtonStates() {
+            const isLoading = loader.style.display === 'flex';
+            fetchButton.disabled = isLoading || isRateLimited;
+            nextButton.disabled = !nextPageUrl || isLoading || isRateLimited;
+            prevButton.disabled = !prevPageUrl || isLoading || isRateLimited;
+        }
+
+        function startLoading() {
+            loader.style.display = 'flex';
+            proxyTbody.innerHTML = '';
+            noProxyMessage.classList.add('hidden');
+            paginationControls.classList.add('hidden');
+            updateButtonStates();
+        }
+
+        function stopLoading() {
+            loader.style.display = 'none';
+            updateButtonStates();
+        }
+
+        async function fetchWebshareProxies(url) {
+            if (isRateLimited) {
+                 showMessage('شما در حال حاضر به دلیل محدودیت نرخ درخواست، نمی‌توانید درخواستی ارسال کنید.', 'error');
+                 return;
+            }
+            startLoading();
+
+            try {
+                const response = await fetch(`${corsProxyUrl}${encodeURIComponent(url)}`, {
+                    headers: { 'Authorization': `Token ${webshareApiKey}` }
+                });
+
+                if (response.status === 429) { handleRateLimit(); return; }
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `خطای سرور: ${response.status}`);
+                }
+
+                const data = await response.json();
+                nextPageUrl = data.next;
+                prevPageUrl = data.previous;
+
+                if (data.results && data.results.length > 0) {
+                    displayProxies(data.results);
+                    paginationControls.classList.remove('hidden');
+                    const currentPage = new URL(url).searchParams.get('page') || 1;
+                    const totalPages = Math.ceil(data.count / (new URL(url).searchParams.get('page_size') || 10));
+                    pageInfo.textContent = `صفحه ${currentPage} از ${totalPages}`;
+                } else {
+                    noProxyMessage.classList.remove('hidden');
+                    showMessage('هیچ پروکسی‌ای در این منبع یافت نشد.', 'info');
+                }
+            } catch (error) {
+                noProxyMessage.classList.remove('hidden');
+                showMessage(`خطا در دریافت پروکسی Webshare: ${error.message}`, 'error');
+            } finally {
+                stopLoading();
+            }
+        }
+        
+        async function fetchProxyScrapeProxies() {
+            startLoading();
+            try {
+                const response = await fetch(`${corsProxyUrl}${encodeURIComponent(proxyScrapeApiUrl)}`);
+                if (!response.ok) { throw new Error(`خطای سرور: ${response.status}`); }
+                const textData = await response.text();
+                const lines = textData.trim().split('\n');
+
+                if (lines.length > 0 && lines[0] !== "") {
+                    const proxies = lines.map(line => {
+                        const [address, port] = line.split(':');
+                        return { proxy_address: address, port: port, username: 'N/A', password: 'N/A', country_code: '??', valid: 'unknown' };
+                    });
+                    displayProxies(proxies);
+                    showMessage(`${proxies.length} پروکسی رایگان بارگذاری شد.`, 'success');
+                } else {
+                    noProxyMessage.classList.remove('hidden');
+                    showMessage('هیچ پروکسی‌ای در این منبع یافت نشد.', 'info');
+                }
+            } catch (error) {
+                noProxyMessage.classList.remove('hidden');
+                showMessage(`خطا در دریافت پروکسی ProxyScrape: ${error.message}`, 'error');
+            } finally {
+                stopLoading();
+            }
+        }
+        
+        async function fetchGeonodeProxies() {
+            startLoading();
+            try {
+                 const response = await fetch(`${corsProxyUrl}${encodeURIComponent(geonodeApiUrl)}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`خطای سرور: ${response.status} - ${errorText}`);
+                }
+                const result = await response.json();
+                
+                if (result.data && result.data.length > 0) {
+                     const proxies = result.data.map(p => ({
+                        proxy_address: p.ip,
+                        port: p.port,
+                        username: 'N/A',
+                        password: 'N/A',
+                        country_code: p.country || '??',
+                        valid: 'unknown'
+                    }));
+                    displayProxies(proxies);
+                    showMessage(`${proxies.length} پروکسی از Geonode بارگذاری شد.`, 'success');
+                } else {
+                    noProxyMessage.classList.remove('hidden');
+                    showMessage('هیچ پروکسی‌ای در این منبع یافت نشد.', 'info');
+                }
+
+            } catch (error) {
+                noProxyMessage.classList.remove('hidden');
+                showMessage(`خطا در دریافت پروکسی Geonode: ${error.message}`, 'error');
+            } finally {
+                stopLoading();
+            }
+        }
+
+        function displayProxies(proxies) {
+            proxies.forEach((proxy, index) => {
+                const proxyRow = document.createElement('tr');
+                proxyRow.style.animationDelay = `${index * 60}ms`;
+                const proxyString = (proxy.username === 'N/A') 
+                    ? `${proxy.proxy_address}:${proxy.port}`
+                    : `${proxy.username}:${proxy.password}@${proxy.proxy_address}:${proxy.port}`;
+                
+                let statusHtml;
+                if (proxy.valid === 'unknown') {
+                    statusHtml = `<span class="status-dot" style="background-color: #ffc107; box-shadow: 0 0 8px #ffc107, 0 0 12px #ffc107;"></span> <span class="mr-2">نامشخص</span>`;
+                } else {
+                    statusHtml = `<span class="status-dot" style="background-color: ${proxy.valid ? '#28a745' : '#dc3545'}; box-shadow: 0 0 8px ${proxy.valid ? '#28a745' : '#dc3545'}, 0 0 12px ${proxy.valid ? '#28a745' : '#dc3545'};"></span> <span class="mr-2">${proxy.valid ? 'فعال' : 'غیرفعال'}</span>`;
+                }
+
+                proxyRow.innerHTML = `
+                    <td class="font-mono text-gray-300">${proxy.proxy_address}</td>
+                    <td class="font-mono text-gray-300">${proxy.port}</td>
+                    <td>${proxy.country_code}</td>
+                    <td class="font-mono">${proxy.username}</td>
+                    <td class="font-mono">${proxy.password}</td>
+                    <td>${statusHtml}</td>
+                    <td>
+                        <button class="copy-btn w-full bg-blue-600/80 hover:bg-blue-600 text-white font-semibold py-2 px-3 rounded-md transition-all duration-200 flex items-center justify-center" data-proxy-string="${proxyString}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            <span>کپی</span>
+                        </button>
+                    </td>
+                `;
+                proxyTbody.appendChild(proxyRow);
+            });
+            document.querySelectorAll('.copy-btn').forEach(button => button.addEventListener('click', handleCopyClick));
+        }
+        
+        function handleCopyClick(event) {
+            const button = event.currentTarget;
+            const proxyString = button.dataset.proxyString;
+            const textarea = document.createElement('textarea');
+            textarea.value = proxyString;
+            textarea.style.position = 'absolute';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showMessage('پروکسی با موفقیت کپی شد!', 'success');
+                const buttonSpan = button.querySelector('span');
+                button.classList.add('bg-green-500');
+                buttonSpan.textContent = 'کپی شد!';
+                setTimeout(() => {
+                    button.classList.remove('bg-green-500');
+                    buttonSpan.textContent = 'کپی';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                showMessage('خطا در کپی کردن.', 'error');
+            }
+            document.body.removeChild(textarea);
+        }
+    </script>
+</body>
+</html>
